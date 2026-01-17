@@ -1,0 +1,292 @@
+{
+  "name": "questionnaire_cleaning",
+  "version": "1.0",
+  "description": "问卷数据清洗数据模式定义",
+  "plan": "plan/questionnaire_cleaning_plan.md",
+  "spec": "spec/questionnaire_cleaning.md",
+  "created_at": "2025-01-13T00:00:00Z",
+  "updated_at": "2025-01-13T00:00:00Z",
+  "status": "active",
+  
+  "schema": {
+    "fields": [
+      {
+        "name": "submit_time",
+        "source": "提交时间列",
+        "type": "datetime",
+        "format": "YYYY-MM-DD HH:MM:SS",
+        "nullable": false,
+        "missing_code": null,
+        "constraints": {
+          "required": true
+        },
+        "description": "问卷提交时间"
+      },
+      {
+        "name": "age",
+        "source": "年龄题",
+        "type": "integer",
+        "nullable": true,
+        "missing_code": -99,
+        "constraints": {
+          "min": 18,
+          "max": 70
+        },
+        "description": "年龄，范围18-70"
+      },
+      {
+        "name": "tenure_years",
+        "source": "工作年限",
+        "type": "float",
+        "nullable": true,
+        "missing_code": -99,
+        "constraints": {
+          "min": 0,
+          "max": 50
+        },
+        "description": "工作年限，范围0-50"
+      },
+      {
+        "name": "department",
+        "source": "所属部门",
+        "type": "categorical",
+        "nullable": true,
+        "missing_code": -99,
+        "values": {
+          "1": "生产",
+          "2": "研发",
+          "3": "销售",
+          "4": "职能",
+          "5": "其他"
+        },
+        "description": "所属部门编码"
+      },
+      {
+        "name": "satisfaction",
+        "source": "满意度量表",
+        "type": "integer",
+        "nullable": true,
+        "missing_code": -99,
+        "constraints": {
+          "min": 1,
+          "max": 5
+        },
+        "values": {
+          "1": "非常不满意",
+          "2": "不满意",
+          "3": "一般",
+          "4": "满意",
+          "5": "非常满意"
+        },
+        "scoring": "forward",
+        "description": "满意度量表，正向计分"
+      },
+      {
+        "name": "workload",
+        "source": "工作负荷量表",
+        "type": "integer",
+        "nullable": true,
+        "missing_code": -99,
+        "constraints": {
+          "min": 1,
+          "max": 5
+        },
+        "values": {
+          "1": "非常轻松",
+          "2": "轻松",
+          "3": "一般",
+          "4": "繁重",
+          "5": "非常繁重"
+        },
+        "scoring": "reverse",
+        "transform": "6 - value",
+        "description": "工作负荷量表，反向计分"
+      },
+      {
+        "name": "benefits_raw",
+        "source": "福利多选题（原始）",
+        "type": "string",
+        "nullable": true,
+        "missing_code": -99,
+        "description": "福利多选题原始值，逗号分隔"
+      },
+      {
+        "name": "benefit_insurance",
+        "source": "福利多选题拆分",
+        "type": "binary",
+        "nullable": false,
+        "constraints": {
+          "values": [0, 1]
+        },
+        "values": {
+          "0": "未选择",
+          "1": "选择"
+        },
+        "source_field": "benefits_raw",
+        "condition": "contains('五险一金')",
+        "description": "是否选择五险一金"
+      },
+      {
+        "name": "benefit_vacation",
+        "source": "福利多选题拆分",
+        "type": "binary",
+        "nullable": false,
+        "constraints": {
+          "values": [0, 1]
+        },
+        "values": {
+          "0": "未选择",
+          "1": "选择"
+        },
+        "source_field": "benefits_raw",
+        "condition": "contains('带薪年假')",
+        "description": "是否选择带薪年假"
+      },
+      {
+        "name": "benefit_medical",
+        "source": "福利多选题拆分",
+        "type": "binary",
+        "nullable": false,
+        "constraints": {
+          "values": [0, 1]
+        },
+        "values": {
+          "0": "未选择",
+          "1": "选择"
+        },
+        "source_field": "benefits_raw",
+        "condition": "contains('补充医疗')",
+        "description": "是否选择补充医疗"
+      },
+      {
+        "name": "other_dept_specify",
+        "source": "其他说明",
+        "type": "text",
+        "nullable": true,
+        "missing_code": -99,
+        "transform": "extract(r'〖(.*?)〗')",
+        "condition": "department == 5",
+        "description": "其他部门说明，仅当department=5时有效"
+      }
+    ]
+  },
+  
+  "quality_rules": {
+    "completeness": [
+      {
+        "rule_id": "QC-001",
+        "field": "submit_time",
+        "check": "not_null",
+        "severity": "critical",
+        "action": "reject"
+      }
+    ],
+    "range": [
+      {
+        "rule_id": "QC-002",
+        "field": "age",
+        "min": 18,
+        "max": 70,
+        "missing_codes": [-99],
+        "severity": "warning",
+        "action": "flag"
+      },
+      {
+        "rule_id": "QC-003",
+        "field": "tenure_years",
+        "min": 0,
+        "max": 50,
+        "missing_codes": [-99],
+        "severity": "warning",
+        "action": "flag"
+      }
+    ],
+    "consistency": [
+      {
+        "rule_id": "QC-004",
+        "description": "部门与说明一致性",
+        "check": "department == 5 OR other_dept_specify == null OR other_dept_specify == ''",
+        "severity": "warning",
+        "action": "flag"
+      },
+      {
+        "rule_id": "QC-005",
+        "description": "缺失值编码规范",
+        "check": "department NOT IN [-99, -88] OR department == -99 OR department == -88",
+        "severity": "warning",
+        "action": "flag"
+      }
+    ]
+  },
+  
+  "transformations": {
+    "standardization": [
+      {
+        "target": "submit_time",
+        "source": "提交时间",
+        "format": "YYYY-MM-DD HH:MM:SS"
+      }
+    ],
+    "numeric_extraction": [
+      {
+        "target": "age",
+        "source": "年龄",
+        "remove_units": true
+      },
+      {
+        "target": "tenure_years",
+        "source": "工作年限",
+        "remove_units": true
+      }
+    ],
+    "encoding": [
+      {
+        "target": "department",
+        "source": "所属部门",
+        "mapping": {
+          "生产": 1,
+          "研发": 2,
+          "销售": 3,
+          "职能": 4,
+          "其他": 5
+        }
+      }
+    ],
+    "scoring": [
+      {
+        "target": "satisfaction",
+        "source": "满意度",
+        "direction": "forward"
+      },
+      {
+        "target": "workload",
+        "source": "工作负荷",
+        "direction": "reverse",
+        "formula": "6 - value"
+      }
+    ],
+    "multi_value_split": [
+      {
+        "target_fields": ["benefit_insurance", "benefit_vacation", "benefit_medical"],
+        "source": "benefits_raw",
+        "separator": ",",
+        "options": ["五险一金", "带薪年假", "补充医疗"]
+      }
+    ],
+    "text_extraction": [
+      {
+        "target": "other_dept_specify",
+        "source": "其他说明",
+        "pattern": "〖(.*?)〗",
+        "condition": "department == 5"
+      }
+    ],
+    "missing_handling": [
+      {
+        "fields": ["age", "tenure_years", "satisfaction", "workload"],
+        "fill_value": -99,
+        "fill_strategy": "user_skipped"
+      }
+    ]
+  }
+}
