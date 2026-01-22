@@ -11,7 +11,7 @@ from pathlib import Path
 
 # 添加处理器目录到路径
 pipeline_dir = Path(__file__).parent
-processor_dir = pipeline_dir.parent.parent.parent / "blueprint" / "processor"
+processor_dir = pipeline_dir.parent / "processor"
 sys.path.insert(0, str(processor_dir))
 
 from questionnaire_pipeline import QuestionnairePipeline
@@ -28,7 +28,7 @@ class TestQuestionnairePipeline:
     @pytest.fixture
     def record_dir(self, pipeline_dir):
         """返回记录目录路径"""
-        return pipeline_dir.parent.parent.parent / "workspace" / "catelog" / "record"
+        return pipeline_dir.parent.parent / "catelog" / "record"
 
     @pytest.fixture
     def dirty_csv_path(self, record_dir):

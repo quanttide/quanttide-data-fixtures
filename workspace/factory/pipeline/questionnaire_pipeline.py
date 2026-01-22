@@ -2,7 +2,7 @@
 问卷数据清洗流水线
 
 使用 catalog/record 中的 dirty.csv 作为输入，
-通过 blueprint/processor 中的 QuestionnaireCleaner 进行处理，
+通过 factory/processor 中的 QuestionnaireCleaner 进行处理，
 结果与 catalog/record 中的 clean.csv 进行对比验证
 """
 
@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 # 添加处理器目录到路径
-processor_dir = Path(__file__).parent.parent.parent / "blueprint" / "processor"
+processor_dir = Path(__file__).parent.parent / "processor"
 sys.path.insert(0, str(processor_dir))
 
 from questionnaire_cleaner import QuestionnaireCleaner
@@ -71,7 +71,7 @@ def main():
     """主函数：运行流水线并输出结果"""
     # 获取路径
     pipeline_dir = Path(__file__).parent
-    record_dir = pipeline_dir.parent.parent.parent / "workspace" / "catelog" / "record"
+    record_dir = pipeline_dir.parent.parent / "catelog" / "record"
     dirty_csv_path = record_dir / "dirty.csv"
     clean_csv_path = record_dir / "clean.csv"
 
