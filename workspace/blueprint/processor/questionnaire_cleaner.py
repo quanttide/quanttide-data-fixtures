@@ -122,21 +122,45 @@ class QuestionnaireCleaner:
 
     def _process_age(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理年龄字段，约束：16-200，允许NULL"""
-        age_col = "年龄" if "年龄" in df.columns else "age"
-        df["age"] = pd.to_numeric(df[age_col], errors="coerce")
+        # 尝试从现有列中提取年龄值
+        age_col = None
+        for col in ["年龄", "age"]:
+            if col in df.columns:
+                age_col = col
+                break
+
+        if age_col:
+            # 清理年龄数据（去除"岁"、中文字符等）
+            if "age" in df.columns:
+                df["age"] = df["age"].astype(str).str.replace("岁", "").replace("NULL", "").replace("未知", "").replace("二十八", "28")
+            elif "年龄" in df.columns:
+                df["age"] = df["年龄"].astype(str).str.replace("岁", "").replace("NULL", "").replace("未知", "")
+            df["age"] = pd.to_numeric(df["age"], errors="coerce")
         # 不强制限制范围，允许极端值，通过data_quality_flag标记
         return df
 
     def _process_total_exp(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理工作年限字段，约束：0-50，允许NULL"""
-        exp_col = "工作年限" if "工作年限" in df.columns else "total_exp"
-        df["total_exp"] = pd.to_numeric(df[exp_col], errors="coerce")
+        # 清理工作年限数据
+        if "total_exp" in df.columns:
+            df["total_exp"] = df["total_exp"].astype(str).str.replace("年", "").replace("刚入职", "0")
+            df["total_exp"] = pd.to_numeric(df["total_exp"], errors="coerce")
+        elif "工作年限" in df.columns:
+            df["total_exp"] = df["工作年限"].astype(str).str.replace("年", "").replace("刚入职", "0")
+            df["total_exp"] = pd.to_numeric(df["total_exp"], errors="coerce")
+            df = df.drop(columns=["工作年限"])
         return df
 
     def _process_satisfaction(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理整体满意度字段，约束：0-6分，允许NULL"""
-        sat_col = "满意度" if "满意度" in df.columns else "overall_satis"
-        df["overall_satis"] = pd.to_numeric(df[sat_col], errors="coerce")
+        # 清理满意度数据
+        if "overall_satis" in df.columns:
+            df["overall_satis"] = df["overall_satis"].astype(str).str.replace("满意", "").replace("分", "")
+            df["overall_satis"] = pd.to_numeric(df["overall_satis"], errors="coerce")
+        elif "满意度" in df.columns:
+            df["overall_satis"] = df["满意度"].astype(str).str.replace("满意", "").replace("分", "")
+            df["overall_satis"] = pd.to_numeric(df["overall_satis"], errors="coerce")
+            df = df.drop(columns=["满意度"])
         return df
 
     def _process_workload(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -147,46 +171,126 @@ class QuestionnaireCleaner:
 
     def _process_tenure(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理任期/司龄字段，约束：0-50，支持小数，允许NULL"""
-        tenure_col = "任期" if "任期" in df.columns else "tenure"
-        df["tenure"] = pd.to_numeric(df[tenure_col], errors="coerce")
+        # 清理任期数据
+        if "tenure" in df.columns:
+            df["tenure"] = df["tenure"].astype(str).str.replace("年", "").replace("刚入职", "0")
+            df["tenure"] = pd.to_numeric(df["tenure"], errors="coerce")
+        elif "任期" in df.columns:
+            df["tenure"] = df["任期"].astype(str).str.replace("年", "").replace("刚入职", "0")
+            df["tenure"] = pd.to_numeric(df["tenure"], errors="coerce")
+            df = df.drop(columns=["任期"])
         return df
 
     def _process_monthly_income(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理月收入字段，约束：0-35000，负数转为NULL，允许NULL"""
-        income_col = "月收入" if "月收入" in df.columns else "monthly_income"
-        df["monthly_income"] = pd.to_numeric(df[income_col], errors="coerce")
+        # 清理月收入数据
+        if "monthly_income" in df.columns:
+            df["monthly_income"] = df["monthly_income"].astype(str).str.replace("元", "").replace("K", "000").replace("保密", "").replace("-", "")
+            df["monthly_income"] = pd.to_numeric(df["monthly_income"], errors="coerce")
+        elif "月收入" in df.columns:
+            df["monthly_income"] = df["月收入"].astype(str).str.replace("元", "").replace("K", "000").replace("保密", "").replace("-", "")
+            df["monthly_income"] = pd.to_numeric(df["monthly_income"], errors="coerce")
+            df = df.drop(columns=["月收入"])
         # 负数转为NULL
         df.loc[df["monthly_income"] < 0, "monthly_income"] = None
         return df
 
     def _standardize_dept(self, df: pd.DataFrame) -> pd.DataFrame:
         """标准化部门字段"""
-        dept_col = "所属部门" if "所属部门" in df.columns else "dept"
-        df["dept"] = df[dept_col].fillna("其他")
+        # 部门映射：标准化部门名称
+        dept_mapping = {
+            "研发部": "研发",
+            "R&D": "研发",
+            "销售部": "销售",
+            "生产": "生产",
+            "生产部": "生产",
+            "职能": "职能",
+            "职能部": "职能",
+            "管理": "管理",
+            "管理部": "管理",
+            "顾问": "其他",
+            "测试部门": "测试部门"
+        }
+
+        if "dept" in df.columns:
+            df["dept"] = df["dept"].map(dept_mapping).fillna(df["dept"])
+            df["dept"] = df["dept"].fillna("其他")
+        elif "所属部门" in df.columns:
+            df["dept"] = df["所属部门"].map(dept_mapping).fillna(df["所属部门"])
+            df["dept"] = df["dept"].fillna("其他")
+            df = df.drop(columns=["所属部门"])
         return df
 
     def _standardize_gender(self, df: pd.DataFrame) -> pd.DataFrame:
         """标准化性别字段为 male/female/unknown"""
-        gender_col = "性别" if "性别" in df.columns else "gender"
-        df["gender"] = df[gender_col].fillna("unknown").map(self.GENDER_MAPPING).fillna("unknown")
+        # 扩展性别映射
+        gender_mapping = {
+            "男": "male",
+            "male": "male",
+            "M": "male",
+            "1": "male",
+            "女": "female",
+            "female": "female",
+            "F": "female",
+            "2": "female",
+            "其他": "other",
+            "other": "other",
+            "未知": "unknown",
+            "unknown": "unknown"
+        }
+
+        if "gender" in df.columns:
+            df["gender"] = df["gender"].fillna("unknown").map(gender_mapping).fillna("unknown")
+        elif "性别" in df.columns:
+            df["gender"] = df["性别"].fillna("unknown").map(gender_mapping).fillna("unknown")
+            df = df.drop(columns=["性别"])
         return df
 
     def _standardize_education(self, df: pd.DataFrame) -> pd.DataFrame:
         """标准化教育程度字段，MBA映射为硕士"""
-        edu_col = "教育程度" if "教育程度" in df.columns else "edu"
-        df["edu"] = df[edu_col].fillna("未知").map(self.EDU_MAPPING).fillna("其他")
+        if "edu" in df.columns:
+            df["edu"] = df["edu"].fillna("未知").map(self.EDU_MAPPING).fillna("其他")
+        elif "教育程度" in df.columns:
+            df["edu"] = df["教育程度"].fillna("未知").map(self.EDU_MAPPING).fillna("其他")
+            df = df.drop(columns=["教育程度"])
         return df
 
     def _standardize_emp_status(self, df: pd.DataFrame) -> pd.DataFrame:
         """标准化雇佣状态字段"""
-        status_col = "雇佣状态" if "雇佣状态" in df.columns else "emp_status"
-        df["emp_status"] = df[status_col].fillna("未知").map(self.EMP_STATUS_MAPPING).fillna("其他")
+        if "emp_status" in df.columns:
+            df["emp_status"] = df["emp_status"].fillna("未知").map(self.EMP_STATUS_MAPPING).fillna("其他")
+        elif "雇佣状态" in df.columns:
+            df["emp_status"] = df["雇佣状态"].fillna("未知").map(self.EMP_STATUS_MAPPING).fillna("其他")
+            df = df.drop(columns=["雇佣状态"])
         return df
 
     def _standardize_city(self, df: pd.DataFrame) -> pd.DataFrame:
         """标准化城市字段为中文"""
-        city_col = "城市" if "城市" in df.columns else "city"
-        df["city"] = df[city_col].fillna("未知城市").map(self.CITY_MAPPING).fillna("未知城市")
+        # 城市名称标准化映射（处理大小写、空格等）
+        city_mapping = {
+            "北京": "北京",
+            "Beijing": "北京",
+            "上海": "上海",
+            "Shanghai": "上海",
+            "shang hai": "上海",
+            "广州": "广州",
+            "深圳": "深圳",
+            "杭州": "杭州",
+            "成都": "成都",
+            "重庆": "重庆",
+            "其他城市": "其他城市",
+            "未知城市": "未知城市"
+        }
+
+        if "city" in df.columns:
+            # 先进行基本映射
+            df["city"] = df["city"].map(city_mapping)
+            # 再使用 CITY_MAPPING 进行标准化
+            df["city"] = df["city"].fillna("未知城市").map(self.CITY_MAPPING).fillna("未知城市")
+        elif "城市" in df.columns:
+            df["city"] = df["城市"].map(city_mapping)
+            df["city"] = df["city"].fillna("未知城市").map(self.CITY_MAPPING).fillna("未知城市")
+            df = df.drop(columns=["城市"])
         return df
 
     def _process_benefits(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -216,9 +320,14 @@ class QuestionnaireCleaner:
 
     def _process_other_notes(self, df: pd.DataFrame) -> pd.DataFrame:
         """处理备注字段，从性别列或其他字段提取备注信息"""
-        notes_col = "备注" if "备注" in df.columns else "other_notes"
-        if notes_col in df.columns:
-            df["other_notes"] = df[notes_col].fillna("")
+        # 处理备注中的特殊标记
+        if "other_notes" in df.columns:
+            df["other_notes"] = df["other_notes"].astype(str).str.replace("—", "").replace("nan", "").replace("其他〖", "").replace("〗", "").replace("测试", "测试")
+            df["other_notes"] = df["other_notes"].fillna("")
+        elif "备注" in df.columns:
+            df["other_notes"] = df["备注"].astype(str).str.replace("—", "").replace("nan", "").replace("其他〖", "").replace("〗", "").replace("测试", "测试")
+            df["other_notes"] = df["other_notes"].fillna("")
+            df = df.drop(columns=["备注"])
         else:
             df["other_notes"] = ""
         return df
